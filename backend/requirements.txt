@@ -1,0 +1,6 @@
+fastapi
+httpx
+pdfplumber
+python-docx
+pydantic
+uvicorn
