@@ -277,3 +277,7 @@ async def analyze_resume_file(
             },
         )
     return result
+
+@app.get("/health")
+async def healthcheck():
+    return {"status": "ok"}
