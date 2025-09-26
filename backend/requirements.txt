@@ -4,3 +4,4 @@ pdfplumber
 python-docx
 pydantic
 uvicorn
+python-multipart
