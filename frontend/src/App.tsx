@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import ModelSelector from "./components/ModelSelector";
 import ResumeForm from "./components/ResumeForm";
 import ResultsDisplay from "./components/ResultsDisplay";
-import { 
-  FaFileAlt, 
-  FaLightbulb, 
-  FaInfoCircle, 
-  FaExclamationTriangle, 
-  FaRedoAlt 
+import {
+  FaFileAlt,
+  FaLightbulb,
+  FaInfoCircle,
+  FaExclamationTriangle,
+  FaRedoAlt,
 } from "react-icons/fa";
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -34,46 +34,63 @@ export interface AnalysisResult {
 
 function App() {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [activeTab, setActiveTab] = useState<"input" | "results">(analysisResult ? "results" : "input");
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  );
+  const [activeTab, setActiveTab] = useState<"input" | "results">(
+    analysisResult ? "results" : "input"
+  );
   const [showWarning, setShowWarning] = useState(true);
 
   // Backend health state
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'available' | 'unavailable'>('checking');
+  const [backendStatus, setBackendStatus] = useState<
+    "checking" | "available" | "unavailable"
+  >("checking");
   const [retrySeconds, setRetrySeconds] = useState(15);
+  const [retryCount, setRetryCount] = useState(0); // Track retry attempts
   const retryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Start retry countdown
   const startRetryCountdown = useCallback(() => {
-    if (retryIntervalRef.current) {
+    if (retryIntervalRef.current !== null) {
       clearInterval(retryIntervalRef.current);
     }
 
     setRetrySeconds(15); // Reset
 
     retryIntervalRef.current = setInterval(() => {
-      setRetrySeconds(prev => {
+      setRetrySeconds((prev) => {
         if (prev <= 1) {
-          checkBackendHealth();
-          return 15;
+          if (retryCount < 10) {
+            setRetryCount((count) => count + 1);
+            checkBackendHealth();
+            return 15;
+          } else {
+            if (retryIntervalRef.current !== null) {
+              clearInterval(retryIntervalRef.current);
+            }
+            retryIntervalRef.current = null;
+            return 0;
+          }
         }
         return prev - 1;
       });
     }, 1000);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryCount]);
 
   // Function to check backend health
   const checkBackendHealth = useCallback(async () => {
     try {
       setBackendStatus("checking");
-      const response = await fetch(`${API_URL}/health`, { 
+      const response = await fetch(`${API_URL}/health`, {
         method: "GET",
-        headers: { "Cache-Control": "no-cache" }
+        headers: { "Cache-Control": "no-cache" },
       });
 
       if (response.ok) {
         setBackendStatus("available");
+        setRetryCount(0); // Reset retry count on success
         if (retryIntervalRef.current) {
           clearInterval(retryIntervalRef.current);
           retryIntervalRef.current = null;
@@ -124,7 +141,9 @@ function App() {
               MatchMyEmployee
             </h1>
           </div>
-          <div className="text-sm text-gray-500">AI-Powered Resume Analysis</div>
+          <div className="text-sm text-gray-500">
+            AI-Powered Resume Analysis
+          </div>
         </div>
       </header>
 
@@ -135,13 +154,13 @@ function App() {
             <div className="flex items-center">
               <FaInfoCircle className="text-amber-500 text-lg mr-2 flex-shrink-0" />
               <p className="text-amber-700 text-sm">
-                <span className="font-medium">Note:</span> Only free models are available by default. 
-                For access to premium models, please consider supporting this project.{" "}
-                <strong>xAI: Grok 4 Fast (free)</strong> is working well for many users.
+                <span className="font-medium">Note:</span> Only free models are
+                available by default. For access to premium models, please
+                consider supporting this project.
               </p>
             </div>
-            <button 
-              onClick={() => setShowWarning(false)} 
+            <button
+              onClick={() => setShowWarning(false)}
               className="text-amber-500 hover:text-amber-700 text-xl leading-none"
               aria-label="Dismiss"
             >
@@ -152,17 +171,19 @@ function App() {
       )}
 
       {/* Backend Status Banner */}
-      {backendStatus === "unavailable" && (
+      {backendStatus === "unavailable" && retryCount < 10 && (
         <div className="bg-red-50 border-y border-red-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center">
               <FaExclamationTriangle className="text-red-500 text-lg mr-2 flex-shrink-0" />
               <p className="text-red-700 text-sm">
-                <span className="font-medium">Server Unavailable:</span> We're having trouble connecting to our servers.
+                <span className="font-medium">Server Unavailable:</span> We're
+                having trouble connecting to our servers. This might take 1-2
+                minutes as the server restarts.
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={handleManualRetry}
                 className="flex items-center bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded-md transition-colors"
               >
@@ -172,7 +193,29 @@ function App() {
               <span className="text-sm text-red-600">
                 Retrying in {retrySeconds}s
               </span>
+              {/* Timer animation */}
+              <div className="relative w-16 h-4 bg-red-100 rounded overflow-hidden">
+                <div
+                  className="absolute left-0 top-0 h-full bg-red-500 transition-all"
+                  style={{
+                    width: `${((15 - retrySeconds) / 15) * 100}%`,
+                    transition: "width 1s linear",
+                  }}
+                />
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {backendStatus === "unavailable" && retryCount >= 10 && (
+        <div className="bg-red-50 border-y border-red-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center">
+            <FaExclamationTriangle className="text-red-500 text-lg mr-2 flex-shrink-0" />
+            <p className="text-red-700 text-sm">
+              <span className="font-medium">Server Unavailable:</span> Unable to
+              connect after multiple attempts. Please try again later.
+            </p>
           </div>
         </div>
       )}
@@ -232,7 +275,8 @@ function App() {
                       How it works
                     </h2>
                     <p className="text-blue-700">
-                      Upload a resume and job description to get AI-powered insights.
+                      Upload a resume and job description to get AI-powered
+                      insights.
                     </p>
                   </div>
 
@@ -261,16 +305,28 @@ function App() {
           <div className="bg-white rounded-xl shadow-xl p-8 text-center">
             <div className="animate-pulse">
               <FaExclamationTriangle className="text-5xl text-amber-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Server Connection Issue</h2>
+              <h2 className="text-2xl font-bold mb-2">
+                Server Connection Issue
+              </h2>
               <p className="text-gray-600 mb-6">
-                We're having trouble connecting to our backend services. Your data is safe.
+                We're having trouble connecting to our backend services. Your
+                data is safe.
               </p>
 
               {backendStatus === "checking" ? (
                 <div className="flex justify-center items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: "0s" }}></div>
-                  <div className="w-4 h-4 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                  <div className="w-4 h-4 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                  <div
+                    className="w-4 h-4 rounded-full bg-blue-600 animate-bounce"
+                    style={{ animationDelay: "0s" }}
+                  ></div>
+                  <div
+                    className="w-4 h-4 rounded-full bg-blue-600 animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                  <div
+                    className="w-4 h-4 rounded-full bg-blue-600 animate-bounce"
+                    style={{ animationDelay: "0.4s" }}
+                  ></div>
                 </div>
               ) : (
                 <button

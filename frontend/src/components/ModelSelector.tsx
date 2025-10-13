@@ -32,50 +32,6 @@ export default function ModelSelector({ selectedModel, setSelectedModel }: Props
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Function to determine if a model is free based on keywords
-  const isModelFree = (model: ModelInfo): boolean => {
-    // Check for free indicators in model name or ID
-    const nameIndicators = model.name?.toLowerCase() || '';
-    const idIndicators = model.id.toLowerCase();
-    
-    // Look for explicit free indicators
-    const freeKeywords = ['free', 'basic', 'standard'];
-    
-    // Check if any free keywords are in the name or ID
-    const hasKeywordInName = freeKeywords.some(keyword => 
-      nameIndicators.includes(`(${keyword})`) || 
-      nameIndicators.includes(`${keyword}`) ||
-      idIndicators.includes(`${keyword}`)
-    );
-    
-    if (hasKeywordInName) return true;
-    
-    // If model has pricing info, check if explicitly marked as free
-    if (model.pricing) {
-      const allPriceValues = Object.values(model.pricing).filter(Boolean);
-      
-      // If no pricing values, consider it free
-      if (allPriceValues.length === 0) return true;
-      
-      // Check for $0 or "Free" in pricing values
-      return allPriceValues.some(value => 
-        value === "0" || 
-        value === "$0" || 
-        value === "0.0" ||
-        typeof value === 'string' && value.toLowerCase().includes('free')
-      );
-    }
-    
-    // If model has description mentioning free, consider it free
-    if (model.description?.toLowerCase().includes('free')) {
-      return true;
-    }
-    
-    // Default to considering base/foundational models as free
-    return model.id.toLowerCase().includes('base') || 
-           model.id.toLowerCase().includes('foundation');
-  };
-
   useEffect(() => {
     async function fetchModels() {
       try {
@@ -83,15 +39,9 @@ export default function ModelSelector({ selectedModel, setSelectedModel }: Props
         const data = await res.json();
         setModels(data);
 
-        // Find the first free model and select it by default
+        // Select the first model by default if none is selected
         if (!selectedModel && data.length > 0) {
-          const freeModels = data.filter(isModelFree);
-          if (freeModels.length > 0) {
-            setSelectedModel(freeModels[0].id);
-          } else {
-            // If no free models are found, select the first available model
-            setSelectedModel(data[0].id);
-          }
+          setSelectedModel(data[0].id);
         }
       } catch (err) {
         console.error("Error fetching models", err);
@@ -105,9 +55,6 @@ export default function ModelSelector({ selectedModel, setSelectedModel }: Props
   const selected = selectedModel
     ? models.find((m) => m.id === selectedModel)
     : null;
-
-  // Get free models for display purposes
-  const freeModels = models.filter(isModelFree);
 
   return (
     <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-100">
@@ -133,7 +80,7 @@ export default function ModelSelector({ selectedModel, setSelectedModel }: Props
             >
               {models.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name || m.id} {isModelFree(m) ? "(Free)" : ""}
+                  {m.name || m.id}
                 </option>
               ))}
             </select>
@@ -151,16 +98,6 @@ export default function ModelSelector({ selectedModel, setSelectedModel }: Props
               </svg>
             </div>
           </div>
-
-          {/* Free models indication */}
-          {freeModels.length > 0 && (
-            <div className="mt-2 text-xs text-green-600 flex items-center">
-              <FaInfoCircle className="mr-1" />
-              {freeModels.length === 1
-                ? "1 free model available"
-                : `${freeModels.length} free models available`}
-            </div>
-          )}
 
           {selected?.description && (
             <div className="mt-2 text-sm text-gray-600 italic">

@@ -88,6 +88,7 @@ def parse_docx(file: UploadFile) -> str:
 async def fetch_available_models() -> List[ModelInfo]:
     """
     Fetch model list from OpenRouter /models endpoint.
+    Only return models where is_free is True.
     """
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -102,22 +103,18 @@ async def fetch_available_models() -> List[ModelInfo]:
     models = []
     for m in data:
         pricing = ModelPricing(**m.get("pricing", {}))
-
-        is_free = all(
-            getattr(pricing, field) in (None, "0", "0.0")
-            for field in pricing.__fields__.keys()
-        )
-
-        models.append(
-            ModelInfo(
-                id=m.get("id"),
-                name=m.get("name"),
-                description=m.get("description"),
-                context_length=m.get("context_length"),
-                pricing=pricing,
-                is_free=is_free,
+        is_free = "(free)" in (m.get("name") or "").lower()
+        if is_free:
+            models.append(
+                ModelInfo(
+                    id=m.get("id"),
+                    name=m.get("name"),
+                    description=m.get("description"),
+                    context_length=m.get("context_length"),
+                    pricing=pricing,
+                    is_free=is_free,
+                )
             )
-        )
     return models
 
 
